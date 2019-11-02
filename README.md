@@ -19,7 +19,7 @@ python3 crazyivan-serv.py
 
 ## Manage
 * Open http://localhost:5000 in browser
-* Login none/none
+* Login [none]/[none]
 
 ## Config
 ```
