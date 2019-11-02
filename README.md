@@ -4,7 +4,7 @@ This trading bot is based on the price difference between currencies on the Bitf
 Upon reaching the specified spread between currencies, two positions are opened on both exchanges. Each position is aimed at narrowing the spread.
 
 
-![alt text](https://github.com/kompotkot/SpreadTradeBot/blob/master/Example.jpg?raw=true)
+![alt text](https://github.com/kompotkot/Trading-SpreadBot/blob/master/Example.jpg?raw=true)
 
 
 crazyivan.py - main bot-logic
