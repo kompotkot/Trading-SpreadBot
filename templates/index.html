@@ -1,0 +1,337 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>{{ name }}</title>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.5/socket.io.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <style>
+        body {
+            padding-top: 75px;
+            background-color: #BFBFBF;
+        }
+
+        .log {
+            color: #444444;
+            display: block;
+            height: 65vh;
+            overflow: scroll;
+            max-height: 65vh;
+        }
+
+        .pair {
+            font: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+            text-transform: uppercase;
+            background: yellowgreen;
+            margin: 0 10px;
+            padding: 5px 10px;
+            color: black;
+        }
+
+        .log .info {
+            color: darkslateblue;
+        }
+
+        .log .spy {
+            color: darkgray;
+        }
+
+        .log .open {
+            color: darkkhaki;
+        }
+
+        .log .debug {
+            color: lightsalmon;
+        }
+
+        .log .error {
+            color: red;
+            font-weight: 600;
+        }
+
+        .log .action {
+            color: darkgoldenrod;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            min-width: 80px;
+        }
+
+        footer {
+            width: 100%;
+            background-color: #f5f5f5;
+            padding: 10px 0 10px;
+            text-align: center;
+            color: #777;
+        }
+
+        .ping {
+            color: #F7F7F7;
+            font-size: 10px;
+        }
+
+        .navbar-right li .glyphicon {
+            padding-right: 5px;
+        }
+    </style>
+    <script type="text/javascript" charset="utf-8">
+        var botStopped = true;
+        var currentPair = '{{ pair }}';
+        $(document).ready(function () {
+            namespace = '/test';
+
+            var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+
+            socket.on('my_response', function (msg) {
+                console.log(msg)
+                if (currentPair != msg.pair && msg.pair != 'all') return;
+
+                if (msg.name == 'profit') {
+                    $("#profit_last").html(msg.data);
+                    var prev_profit = $("#profit_total").html();
+                    $("#profit_total").html((parseFloat(prev_profit) + parseFloat(msg.data)).toFixed(2));
+                }
+
+                var d = document.createElement('div');
+                $(d).addClass(msg.name)
+                        .html('[ '+ msg.pair + ' ] ' + msg.date + ': ' + msg.data)
+                        .appendTo($("#log"));
+                //$('#log').append('<br>' + $('<div/>').addClass(msg.name).text(msg.date + ': ' + msg.data).html());
+                $("#log").stop().animate({scrollTop: $("#log")[0].scrollHeight}, 1000);
+            });
+
+            // Interval function that tests message latency by sending a "ping"
+            // message. The server then responds with a "pong" message and the
+            // round trip time is measured.
+            var ping_pong_times = [];
+            var start_time;
+            window.setInterval(function () {
+                start_time = (new Date).getTime();
+                socket.emit('my_ping');
+            }, 1000);
+
+            socket.on('stopped', function (stop) {
+                botStopped = stop
+                $('#btnStart').html('<span class="glyphicon glyphicon-off"></span> &nbsp;' + (botStopped ? 'Start' : 'Stop'));
+            });
+
+            socket.on('my_pong', function () {
+                var latency = (new Date).getTime() - start_time;
+                ping_pong_times.push(latency);
+                ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
+                var sum = 0;
+                for (var i = 0; i < ping_pong_times.length; i++)
+                    sum += ping_pong_times[i];
+                $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
+            });
+
+            socket.on('load_config_res', function (res) {
+                const data = res.data;
+                if (currentPair != res.pair) return;
+
+
+                $('#okCoinApiKey').val(data.OKCOIN.API_KEY);
+                $('#okCoinApiSecret').val(data.OKCOIN.API_SECRET);
+                $('#bitfinexApiKey').val(data.BITFINEX.API_KEY);
+                $('#bitfinexSecret').val(data.BITFINEX.API_SECRET);
+                $('#tradePair1').val(data.SYMBOL1);
+                $('#tradePair2').val(data.SYMBOL2);
+                $('#profitSpread').val(data.PROFITABLE_SPREAD);
+                $('#tradeAmount').val(data.TRADE_AMOUNT);
+                $('#timeFrame').val(data.TIME_FRAME);
+            });
+
+            $('#btnSettings').click(function (e) {
+                socket.emit('load_config_req', currentPair);
+
+            });
+            $('#btnSave').click(function (e) {
+                e.preventDefault();
+                socket.emit('save_config', {
+                    pair: currentPair,
+                    data: {
+                        OKCOIN: {
+                            API_KEY: $('#okCoinApiKey').val(),
+                            API_SECRET: $('#okCoinApiSecret').val()
+                        },
+                        BITFINEX: {
+                            API_KEY: $('#bitfinexApiKey').val(),
+                            API_SECRET: $('#bitfinexSecret').val()
+                        },
+                        SYMBOL1: $('#tradePair1').val(),
+                        SYMBOL2: $('#tradePair2').val(),
+                        PROFITABLE_SPREAD: parseFloat($('#profitSpread').val()),
+                        TRADE_AMOUNT: parseFloat($('#tradeAmount').val()),
+                        TIME_FRAME: parseFloat($('#timeFrame').val())
+                    }
+                });
+            });
+
+            $('#btnRestart').click(function (e) {
+                e.preventDefault();
+                socket.emit('restart');
+            });
+            $('#btnStart').click(function (e) {
+                e.preventDefault();
+                botStopped = !botStopped;
+                $('#btnStart').html('<span class="glyphicon glyphicon-off"> </span> &nbsp;' + (botStopped ? 'Start' : 'Stop'));
+                socket.emit('start', botStopped);
+            });
+            //                socket.emit('my_event', {data: $('#emit_data').val()});
+            //                return false;
+            //            });
+            // Handlers for the different forms in the page.
+            // These accept data from the user and send it to the server in a
+            // variety of ways
+            //            $('form#emit').submit(function (event) {
+            //                socket.emit('my_event', {data: $('#emit_data').val()});
+            //                return false;
+            //            });
+
+        })
+        ;
+    </script>
+</head>
+<body>
+<nav class="navbar navbar-fixed-top navbar-inverse">
+    <div class="container">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                        data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">
+                    <span class="glyphicon glyphicon-knight" aria-hidden="true"></span>
+                    {{ name }}<span class="pair">{{ pair }}</span>
+                </a>
+            </div>
+            <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true"
+                           aria-expanded="false"><span class="glyphicon glyphicon-bitcoin" aria-hidden="true"></span>Trade
+                            pair <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="/btcusd">BTC/USD</a></li>
+                            <li><a href="/ethusd">ETH/USD</a></li>
+                            <li><a href="/ltcusd">LTC/USD</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a id="btnSettings" href="#" data-toggle="modal"
+                           data-target="#myModal"><span class="glyphicon glyphicon-wrench"> </span>Settings
+                        </a>
+                    </li>
+                    <li>
+                        <a id="btnRestart" href="#"><span class="glyphicon glyphicon-repeat"> </span>Restart</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<div class="container">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <button id="btnStart" type="button" class="btn btn-xs btn-primary"><span
+                    class="glyphicon glyphicon-off"> </span>&nbsp;Start
+            </button>
+            <span class="label label-default">Profit: <span id="profit_total">{{ profit }}</span></span>
+            <span class="label label-default">Last: <span id="profit_last">0</span></span>
+
+        </div>
+        <div class="panel-body">
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+    <footer class="navbar-inverse navbar-fixed-bottom">
+        <div class="ping">Ping <b><span id="ping-pong"></span>ms</b></div>
+        <div>Assembled by <a href="mailto:acidpictures@gmail.com">Funky Machines</a> &copy; 2017</div>
+</div>
+</footer>
+</div>
+<!-- Modal -->
+<div class="modal fade" id="myModal" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Settings</h4>
+            </div>
+            <div class="modal-body">
+                <form id="formSettings">
+                    <div class="form-group">
+                        <label for="okCoinApiKey">OkCoin(KEY/SECRET)</label>
+                        <div class="row">
+                            <div class="col-xs-12 col-sm-6">
+                                <input type="text" class="form-control" id="okCoinApiKey"
+                                       placeholder="API KEY">
+                            </div>
+                            <div class="col-xs-12 col-sm-6">
+                                <input type="text" class="form-control" id="okCoinApiSecret"
+                                       placeholder="API SECRET">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="okCoinApiKey">Bitfinex(KEY/SECRET)</label>
+                        <div class="row">
+                            <div class="col-xs-12 col-sm-6">
+                                <input type="text" class="form-control" id="bitfinexApiKey"
+                                       placeholder="API KEY">
+                            </div>
+                            <div class="col-xs-12 col-sm-6">
+                                <input type="text" class="form-control" id="bitfinexSecret"
+                                       placeholder="API SECRET">
+                            </div>
+                        </div>
+                    </div>
+                    <hr/>
+                    <div class="form-group">
+                        <label for="tradePair1">Trade pairs</label>
+                        <div class="row">
+                            <div class="col-xs-12 col-sm-6">
+                                <input type="text" class="form-control" id="tradePair1"
+                                       placeholder="SYMBOL">
+                            </div>
+                            <div class="col-xs-12 col-sm-6">
+                                <input type="text" class="form-control" id="tradePair2"
+                                       placeholder="BTC">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="timeFrame">Time frame</label>
+                        <input type="number" class="form-control" id="timeFrame" placeholder="time frame">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeFrame">Trade amount</label>
+                        <input type="number" class="form-control" id="tradeAmount" step="0.01" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeFrame">Profit spread</label>
+                        <input type="number" class="form-control" id="profitSpread" placeholder="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button id="btnSave" type="button" class="btn btn-primary" data-dismiss="modal">Save</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>
