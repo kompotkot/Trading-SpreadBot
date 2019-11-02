@@ -7,7 +7,7 @@ Upon reaching the specified spread between currencies, two positions are opened 
 ![alt text](https://github.com/kompotkot/Trading-SpreadBot/blob/master/Example.jpg?raw=true)
 
 
-* crazyivan.py - main bot-logic
+* crazyivan.py - main logic
 * trader.py - order manager
 
 ## Launch
