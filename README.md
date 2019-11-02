@@ -6,18 +6,16 @@ Upon reaching the specified spread between currencies, two positions are opened 
 
 ![alt text](https://github.com/kompotkot/Trading-SpreadBot/blob/master/Example.jpg?raw=true)
 
-
+```
 crazyivan.py - main bot-logic
-
 trader.py - order manager
-
+```
 
 ## Launch
 ```
 mkdir logs
 source env/bin/activate
 python3 crazyivan-serv.py
-
 ```
 
 ## Manage
@@ -25,9 +23,13 @@ python3 crazyivan-serv.py
 * Login none/none
 
 ## Config
-* config.json
+```
+config.json
+```
 
 ## Thanks
+* github repository with OkCoin API
+* github repository with Bitfinex API
 
 ## Developed by
 * Fancy machines (C) 2017
